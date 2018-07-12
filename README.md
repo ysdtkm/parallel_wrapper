@@ -1,6 +1,7 @@
 # parallel_wrapper: wrapper to sweep a parameter space
 ## What is done
 * Make directories and copy environment
+    * In each directory, some of the files can be edited.
 * Using multiprocessing.Pool and subprocess.run to run experiments in each directory
 * Reduce the results as k-dimentional np.ndarray of objects (inverse_itertools_kd_product)
 
