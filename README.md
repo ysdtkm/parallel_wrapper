@@ -8,6 +8,10 @@
 * The single job must
     * be a shell command
     * write the output to a file
+    
+## Requirements
+* Python > 3.5 (for subprocess.run)
+* numpy
 
 ## Usage
 ```bash
