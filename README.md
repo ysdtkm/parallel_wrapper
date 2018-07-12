@@ -22,4 +22,4 @@ python frontend.py
 
 ## Note
 * Basic idea taken from https://github.com/eviatarbach/simulation_runner
-* See schematic.png for schematic
+* See schematic.png for schematic (not up-to-date)
