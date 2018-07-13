@@ -35,6 +35,7 @@ def get_output_obj(suffix_path, wkpath):
 def get_failed_obj(suffix_path, wkpath):
     return "Failed"
 
+# Below are backend. Generally no need to edit.
 class Rewriter:
     def __init__(self, relative_file_name, line_num, match, formattable_replacer):
         assert isinstance(relative_file_name, str)
