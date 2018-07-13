@@ -15,7 +15,8 @@ def wrap_parallel():
         Param("first", "%02d", [1, 2, 3], [Rewrite("echo_numbers.sh", 2, "x", "x={p:02d}")]),
         Param("second", "%.02f", [11.0, 12.0], [Rewrite("echo_numbers.sh", 3, "y", "y={p:f}")])
     ]
-    res = exec_parallel("/home/tak/prgm/parallel_wrapper", k, params, "sh echo_numbers.sh", max_proc=10)
+    res = ParallelExecuter.exec_parallel(
+        "/home/tak/prgm/parallel_wrapper", k, params, "sh echo_numbers.sh", max_proc=10)
     visualize_results(res)
 
 def visualize_results(res):
@@ -62,61 +63,66 @@ class Param:
         self.values = values
         self.changes = changes
 
-def __inverse_itertools_kd_product(k, params, map_result):
-    assert k == len(params)
-    ns = [len(params[j]) for j in range(k)]
-    assert np.prod(ns, dtype=int) == len(map_result)
-    res_np = np.array(map_result, dtype=object)
-    res = res_np.reshape(ns)
-    return res
+class ParallelExecuter:
+    @classmethod
+    def inverse_itertools_kd_product(cls, k, params, map_result):
+        assert k == len(params)
+        ns = [len(params[j]) for j in range(k)]
+        assert np.prod(ns, dtype=int) == len(map_result)
+        res_np = np.array(map_result, dtype=object)
+        res = res_np.reshape(ns)
+        return res
 
-def __shell(cmd, writeout=False):
-    assert isinstance(cmd, str)
-    p = sp.run(cmd, shell=True, encoding="utf8", stderr=sp.PIPE, stdout=sp.PIPE)
-    if writeout:
-        with open("stdout", "w") as f:
-            f.write(p.stdout)
-        with open("stderr", "w") as f:
-            f.write(p.stdout)
-    else:
+    @classmethod
+    def shell(cls, cmd, writeout=False):
+        assert isinstance(cmd, str)
+        p = sp.run(cmd, shell=True, encoding="utf8", stderr=sp.PIPE, stdout=sp.PIPE)
+        if writeout:
+            with open("stdout", "w") as f:
+                f.write(p.stdout)
+            with open("stderr", "w") as f:
+                f.write(p.stdout)
+        else:
+            if p.returncode != 0:
+                print(p.stdout)
+                print(p.stderr)
         if p.returncode != 0:
-            print(p.stdout)
-            print(p.stderr)
-    if p.returncode != 0:
-        raise Exception("shell %s failed" % cmd)
+            raise Exception("shell %s failed" % cmd)
 
-def __exec_single_job(wdir_base, k, fmts, changes, command, param):
-    assert len(param) == k
-    s = [(fmts[j] % param[j]).replace(".", "_") for j in range(k)]
-    supp = "".join([f"/{s[j]}" for j in range(k)])
-    dname = f"{wdir_base}/wk_parallel{supp}"
-    __shell(f"mkdir -p {dname}")
-    os.chdir(dname)
-    __shell(f"cp -rf {wdir_base}/template_parallel/* .")
+    @classmethod
+    def exec_single_job(cls, wdir_base, k, fmts, changes, command, param):
+        assert len(param) == k
+        s = [(fmts[j] % param[j]).replace(".", "_") for j in range(k)]
+        supp = "".join([f"/{s[j]}" for j in range(k)])
+        dname = f"{wdir_base}/wk_parallel{supp}"
+        cls.shell(f"mkdir -p {dname}")
+        os.chdir(dname)
+        cls.shell(f"cp -rf {wdir_base}/template_parallel/* .")
 
-    for j in range(k):
-        for c in changes[j]:
-            c.rewrite_file_with_param(param[j])
-    try:
-        __shell(command, writeout=True)
-        res = get_output_obj()
-        print(f"util_parallel: {supp} done")
-    except:
-        res = get_failed_obj()
-        print(f"util_parallel: {supp} failed")
-    return res
+        for j in range(k):
+            for c in changes[j]:
+                c.rewrite_file_with_param(param[j])
+        try:
+            cls.shell(command, writeout=True)
+            res = get_output_obj()
+            print(f"util_parallel: {supp} done")
+        except:
+            res = get_failed_obj()
+            print(f"util_parallel: {supp} failed")
+        return res
 
-def exec_parallel(wdir_base, k, params, command, max_proc=100):
-    assert k == len(params)
-    __shell(f"rm -rf {wdir_base}/wk_parallel")
-    pvs = [p.values for p in params]
-    changes = [p.changes for p in params]
-    fmts = [p.path_fmt for p in params]
-    pvs_prod = itertools.product(*pvs)
-    job = functools.partial(__exec_single_job, wdir_base, k, fmts, changes, command)
-    with Pool(min(cpu_count(), max_proc)) as p:
-        res = p.map(job, pvs_prod)
-    return __inverse_itertools_kd_product(k, pvs, res)
+    @classmethod
+    def exec_parallel(cls, wdir_base, k, params, command, max_proc=100):
+        assert k == len(params)
+        cls.shell(f"rm -rf {wdir_base}/wk_parallel")
+        pvs = [p.values for p in params]
+        changes = [p.changes for p in params]
+        fmts = [p.path_fmt for p in params]
+        pvs_prod = itertools.product(*pvs)
+        job = functools.partial(cls.exec_single_job, wdir_base, k, fmts, changes, command)
+        with Pool(min(cpu_count(), max_proc)) as p:
+            res = p.map(job, pvs_prod)
+        return cls.inverse_itertools_kd_product(k, pvs, res)
 
 if __name__ == "__main__":
     wrap_parallel()
