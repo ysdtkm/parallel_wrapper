@@ -9,7 +9,7 @@
 * The single job must
     * be a shell command
     * write the output to a file
-    
+
 ## Requirements
 * Python > 3.5 (for subprocess.run)
 * numpy
@@ -17,10 +17,10 @@
 ## Usage
 ```bash
 # put programs-to-be-wrapped into template_parallel/
-# edit frontend.py
-python frontend.py
+# edit runner.py
+python runner.py
 ```
 
 ## Note
 * Basic idea taken from https://github.com/eviatarbach/simulation_runner
-* See schematic.png for schematic (not up-to-date)
+* schematic at i04p21
