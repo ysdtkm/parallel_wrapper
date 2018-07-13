@@ -14,8 +14,7 @@ def main_parallel():
         ParameterAxis("first", [1, 2, 3], "%02d", [Rewriter("echo_numbers.sh", 2, "x", "x={param:02d}")]),
         ParameterAxis("second", [11.0, 12.0], "%.02f", [Rewriter("echo_numbers.sh", 3, "y", "y={param:f}")])
     ]
-    res = Runner.run_parallel(
-        "/home/tak/prgm/parallel_wrapper", params, "sh echo_numbers.sh")
+    res = Runner.run_parallel(params, "sh echo_numbers.sh")
     visualize_results(params, res)
 
 def visualize_results(params, res):
@@ -115,7 +114,8 @@ class Runner:
         return res
 
     @classmethod
-    def run_parallel(cls, wdir_base, params, command, max_proc=10):
+    def run_parallel(cls, params, command, max_proc=10):
+        wdir_base = os.getcwd()
         cls.shell(f"rm -rf {wdir_base}/wk_parallel")
         param_vals = [p.values for p in params]
         param_vals_prod = itertools.product(*param_vals)
