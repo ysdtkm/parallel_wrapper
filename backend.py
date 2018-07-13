@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-# ref: a50p24
 
-import sys, os
-import subprocess as sp
+import functools
 import itertools, functools
 from multiprocessing import Pool, cpu_count
-from frontend import get_output_obj, get_failed_obj
+import os
+import subprocess as sp
+import sys
 import numpy as np
+# these functions cannot be passed as function objects because they cannot be pickled
+from frontend import get_output_obj, get_failed_obj
 
 class Rewrite:
     def __init__(self, file_name, line_num, match, replace_fmt):
