@@ -9,13 +9,13 @@ import sys
 import subprocess as sp
 import numpy as np
 
-def wrap_parallel():
+def main_parallel():
     k = 2
     params = [
         Param("first", "%02d", [1, 2, 3], [Rewrite("echo_numbers.sh", 2, "x", "x={p:02d}")]),
         Param("second", "%.02f", [11.0, 12.0], [Rewrite("echo_numbers.sh", 3, "y", "y={p:f}")])
     ]
-    res = ParallelExecuter.exec_parallel(
+    res = Runner.exec_parallel(
         "/home/tak/prgm/parallel_wrapper", k, params, "sh echo_numbers.sh", max_proc=10)
     visualize_results(res)
 
@@ -63,11 +63,11 @@ class Param:
         self.values = values
         self.changes = changes
 
-class ParallelExecuter:
+class Runner:
     @classmethod
-    def inverse_itertools_kd_product(cls, k, params, map_result):
-        assert k == len(params)
-        ns = [len(params[j]) for j in range(k)]
+    def inverse_itertools_kd_product(cls, k, param_vals, map_result):
+        assert k == len(param_vals)
+        ns = [len(param_vals[j]) for j in range(k)]
         assert np.prod(ns, dtype=int) == len(map_result)
         res_np = np.array(map_result, dtype=object)
         res = res_np.reshape(ns)
@@ -90,10 +90,11 @@ class ParallelExecuter:
             raise Exception("shell %s failed" % cmd)
 
     @classmethod
-    def exec_single_job(cls, wdir_base, k, fmts, changes, command, param):
-        assert len(param) == k
-        s = [(fmts[j] % param[j]).replace(".", "_") for j in range(k)]
-        supp = "".join([f"/{s[j]}" for j in range(k)])
+    def exec_single_job(cls, wdir_base, k, params, command, list_param_val):
+        assert len(list_param_val) == k
+        changes = [p.changes for p in params]
+        str_path = [(params[j].path_fmt % list_param_val[j]).replace(".", "_") for j in range(k)]
+        supp = "".join([f"/{str_path[j]}" for j in range(k)])
         dname = f"{wdir_base}/wk_parallel{supp}"
         cls.shell(f"mkdir -p {dname}")
         os.chdir(dname)
@@ -101,7 +102,7 @@ class ParallelExecuter:
 
         for j in range(k):
             for c in changes[j]:
-                c.rewrite_file_with_param(param[j])
+                c.rewrite_file_with_param(list_param_val[j])
         try:
             cls.shell(command, writeout=True)
             res = get_output_obj()
@@ -115,15 +116,13 @@ class ParallelExecuter:
     def exec_parallel(cls, wdir_base, k, params, command, max_proc=100):
         assert k == len(params)
         cls.shell(f"rm -rf {wdir_base}/wk_parallel")
-        pvs = [p.values for p in params]
-        changes = [p.changes for p in params]
-        fmts = [p.path_fmt for p in params]
-        pvs_prod = itertools.product(*pvs)
-        job = functools.partial(cls.exec_single_job, wdir_base, k, fmts, changes, command)
+        param_vals = [p.values for p in params]
+        param_vals_prod = itertools.product(*param_vals)
+        job = functools.partial(cls.exec_single_job, wdir_base, k, params, command)
         with Pool(min(cpu_count(), max_proc)) as p:
-            res = p.map(job, pvs_prod)
-        return cls.inverse_itertools_kd_product(k, pvs, res)
+            res = p.map(job, param_vals_prod)
+        return cls.inverse_itertools_kd_product(k, param_vals, res)
 
 if __name__ == "__main__":
-    wrap_parallel()
+    main_parallel()
 
