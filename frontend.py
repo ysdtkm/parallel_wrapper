@@ -16,10 +16,13 @@ def main_parallel():
     ]
     res = Runner.run_parallel(
         "/home/tak/prgm/parallel_wrapper", params, "sh echo_numbers.sh")
-    visualize_results(res)
+    visualize_results(params, res)
 
-def visualize_results(res):
+def visualize_results(params, res):
     assert isinstance(res, np.ndarray)
+    print("\nvisualization:")
+    for ip, p in enumerate(params):
+        print(f"{ip}-th parameter '{p.name}' with length {len(p.values)}")
     print(res.shape)
     print(res)
 
