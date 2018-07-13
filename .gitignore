@@ -75,4 +75,5 @@ NAMELIST
 data/
 __pycache__/
 wk_parallel/
+work/
 

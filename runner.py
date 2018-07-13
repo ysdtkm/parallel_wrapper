@@ -10,11 +10,13 @@ import subprocess as sp
 import numpy as np
 
 def main_parallel():
+    wkpath = os.getcwd() + "/work"
+    templatepath = os.getcwd() + "/template"
     params = [
         ParameterAxis("first", [1, 2, 3], "%02d", [Rewriter("echo_numbers.sh", 2, "x", "x={param:02d}")]),
         ParameterAxis("second", [11.0, 12.0], "%.02f", [Rewriter("echo_numbers.sh", 3, "y", "y={param:f}")])
     ]
-    res = Runner.run_parallel(params, "sh echo_numbers.sh")
+    res = Runner.run_parallel(params, "sh echo_numbers.sh", wkpath, templatepath)
     visualize_results(params, res)
 
 def visualize_results(params, res):
@@ -25,15 +27,14 @@ def visualize_results(params, res):
     print(res.shape)
     print(res)
 
-def get_output_obj():
+def get_output_obj(suffix_path, wkpath):
     with open("out", "r") as f:
         lines = f.readlines()
     return lines[0]
 
-def get_failed_obj():
+def get_failed_obj(suffix_path, wkpath):
     return "Failed"
 
-# Following are backend. Generally no need to edit.
 class Rewriter:
     def __init__(self, relative_file_name, line_num, match, formattable_replacer):
         assert isinstance(relative_file_name, str)
@@ -79,53 +80,52 @@ class Runner:
         return kd_array
 
     @classmethod
-    def shell(cls, cmd, writeout=False):
-        assert isinstance(cmd, str)
-        p = sp.run(cmd, shell=True, encoding="utf8", stderr=sp.PIPE, stdout=sp.PIPE)
-        if writeout:
-            with open("stdout", "w") as f:
-                f.write(p.stdout)
-            with open("stderr", "w") as f:
-                f.write(p.stdout)
-        else:
-            if p.returncode != 0:
-                print(p.stdout)
-                print(p.stderr)
-        if p.returncode != 0:
-            raise Exception("shell %s failed" % cmd)
-
-    @classmethod
-    def exec_single_job(cls, wdir_base, params, command, list_param_val):
+    def exec_single_job(cls, params, command, wkpath, templatepath, list_param_val):
         k_dim = len(params)
         assert len(list_param_val) == k_dim
         str_path_part = [(params[j].path_fmt % list_param_val[j]).replace(".", "_") for j in range(k_dim)]
         suffix_path = "".join([f"/{str_path_part[j]}" for j in range(k_dim)])
-        single_dir_name = f"{wdir_base}/wk_parallel{suffix_path}"
-        cls.shell(f"mkdir -p {single_dir_name}")
+        single_dir_name = f"{wkpath}{suffix_path}"
+        shell(f"mkdir -p {single_dir_name}")
         os.chdir(single_dir_name)
-        cls.shell(f"cp -rf {wdir_base}/template_parallel/* .")
+        shell(f"cp -rf {templatepath}/* .")
         for j in range(k_dim):
             for r in params[j].rewriters:
                 r.rewrite_file_with_param(list_param_val[j])
         try:
-            cls.shell(command, writeout=True)
-            res = get_output_obj()
+            shell(command, writeout=True)
+            res = get_output_obj(suffix_path, wkpath)
             print(f"util_parallel: {suffix_path} done")
         except:
-            res = get_failed_obj()
+            res = get_failed_obj(suffix_path, wkpath)
             print(f"util_parallel: {suffix_path} failed")
         return res
 
     @classmethod
-    def run_parallel(cls, params, command, max_proc=10):
-        wdir_base = os.getcwd()
-        cls.shell(f"rm -rf {wdir_base}/wk_parallel")
+    def run_parallel(cls, params, command, wkpath, templatepath, max_proc=10):
+        shell(f"rm -rf {wkpath}/out")
+        shell(f"mkdir -p {wkpath}/out")
         param_vals = [p.values for p in params]
         param_vals_prod = itertools.product(*param_vals)
-        job = functools.partial(cls.exec_single_job, wdir_base, params, command)
+        job = functools.partial(cls.exec_single_job, params, command, wkpath, templatepath)
         with Pool(min(cpu_count(), max_proc)) as p:
             res = p.map(job, param_vals_prod)
         return cls.inverse_itertools_kd_product(param_vals, res)
+
+def shell(cmd, writeout=False):
+    assert isinstance(cmd, str)
+    p = sp.run(cmd, shell=True, encoding="utf8", stderr=sp.PIPE, stdout=sp.PIPE)
+    if writeout:
+        with open("stdout", "w") as f:
+            f.write(p.stdout)
+        with open("stderr", "w") as f:
+            f.write(p.stdout)
+    else:
+        if p.returncode != 0:
+            print(p.stdout)
+            print(p.stderr)
+    if p.returncode != 0:
+        raise Exception("shell %s failed" % cmd)
 
 if __name__ == "__main__":
     main_parallel()
