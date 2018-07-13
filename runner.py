@@ -11,8 +11,8 @@ import numpy as np
 
 def main_parallel():
     params = [
-        Param("first", "%02d", [1, 2, 3], [Rewriter("echo_numbers.sh", 2, "x", "x={param:02d}")]),
-        Param("second", "%.02f", [11.0, 12.0], [Rewriter("echo_numbers.sh", 3, "y", "y={param:f}")])
+        Param("first", [1, 2, 3], "%02d", [Rewriter("echo_numbers.sh", 2, "x", "x={param:02d}")]),
+        Param("second", [11.0, 12.0], "%.02f", [Rewriter("echo_numbers.sh", 3, "y", "y={param:f}")])
     ]
     res = Runner.run_parallel(
         "/home/tak/prgm/parallel_wrapper", params, "sh echo_numbers.sh")
@@ -57,7 +57,7 @@ class Rewriter:
                     f.write(l)
 
 class Param:
-    def __init__(self, name, path_fmt, values, rewriters):
+    def __init__(self, name, values, path_fmt, rewriters):
         assert isinstance(values, collections.Iterable)
         assert isinstance(rewriters, collections.Iterable)
         self.name = name
