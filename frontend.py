@@ -11,12 +11,11 @@ import numpy as np
 
 def wrap_parallel():
     k = 2
-    params = [[1, 2, 3], [11.0, 12.0]]
-    fmts = ["%02d", "%.02f"]
-    changes = [[Rewrite("echo_numbers.sh", 2, "x", "x={p:02d}")],
-               [Rewrite("echo_numbers.sh", 3, "y", "y={p:f}")]]
-    res = exec_parallel("/home/tak/prgm/parallel_wrapper",
-                  k, params, fmts, changes, "sh echo_numbers.sh")
+    params = [
+        Param("first", "%02d", [1, 2, 3], [Rewrite("echo_numbers.sh", 2, "x", "x={p:02d}")]),
+        Param("second", "%.02f", [11.0, 12.0], [Rewrite("echo_numbers.sh", 3, "y", "y={p:f}")])
+    ]
+    res = exec_parallel("/home/tak/prgm/parallel_wrapper", k, params, "sh echo_numbers.sh", max_proc=10)
     visualize_results(res)
 
 def visualize_results(res):
@@ -54,13 +53,15 @@ class Rewrite:
                 else:
                     f.write(l)
 
-# class Param:
-#     def __init__(self, name, path_fmt, values):
-#         assert isinstance(values, collections.Iterable)
-#         self.name == name
-#         self.path_fmt = path_fmt
-#         self.values = values
-# 
+class Param:
+    def __init__(self, name, path_fmt, values, changes):
+        assert isinstance(values, collections.Iterable)
+        assert isinstance(changes, collections.Iterable)
+        self.name = name
+        self.path_fmt = path_fmt
+        self.values = values
+        self.changes = changes
+
 def __inverse_itertools_kd_product(k, params, map_result):
     assert k == len(params)
     ns = [len(params[j]) for j in range(k)]
@@ -105,14 +106,17 @@ def __exec_single_job(wdir_base, k, fmts, changes, command, param):
         print(f"util_parallel: {supp} failed")
     return res
 
-def exec_parallel(wdir_base, k, params, fmts, changes, command, max_proc=100):
-    assert k == len(params) == len(fmts) == len(changes)
+def exec_parallel(wdir_base, k, params, command, max_proc=100):
+    assert k == len(params)
     __shell(f"rm -rf {wdir_base}/wk_parallel")
-    params_prod = itertools.product(*params)
+    pvs = [p.values for p in params]
+    changes = [p.changes for p in params]
+    fmts = [p.path_fmt for p in params]
+    pvs_prod = itertools.product(*pvs)
     job = functools.partial(__exec_single_job, wdir_base, k, fmts, changes, command)
     with Pool(min(cpu_count(), max_proc)) as p:
-        res = p.map(job, params_prod)
-    return __inverse_itertools_kd_product(k, params, res)
+        res = p.map(job, pvs_prod)
+    return __inverse_itertools_kd_product(k, pvs, res)
 
 if __name__ == "__main__":
     wrap_parallel()
