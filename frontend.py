@@ -12,8 +12,8 @@ import numpy as np
 def main_parallel():
     k = 2
     params = [
-        Param("first", "%02d", [1, 2, 3], [Rewrite("echo_numbers.sh", 2, "x", "x={p:02d}")]),
-        Param("second", "%.02f", [11.0, 12.0], [Rewrite("echo_numbers.sh", 3, "y", "y={p:f}")])
+        Param("first", "%02d", [1, 2, 3], [Rewriter("echo_numbers.sh", 2, "x", "x={p:02d}")]),
+        Param("second", "%.02f", [11.0, 12.0], [Rewriter("echo_numbers.sh", 3, "y", "y={p:f}")])
     ]
     res = Runner.exec_parallel(
         "/home/tak/prgm/parallel_wrapper", k, params, "sh echo_numbers.sh", max_proc=10)
@@ -32,7 +32,7 @@ def get_output_obj():
 def get_failed_obj():
     return "Failed"
 
-class Rewrite:
+class Rewriter:
     def __init__(self, file_name, line_num, match, replace_fmt):
         assert isinstance(file_name, str)
         assert isinstance(line_num, int)
@@ -55,13 +55,13 @@ class Rewrite:
                     f.write(l)
 
 class Param:
-    def __init__(self, name, path_fmt, values, changes):
+    def __init__(self, name, path_fmt, values, rewriters):
         assert isinstance(values, collections.Iterable)
-        assert isinstance(changes, collections.Iterable)
+        assert isinstance(rewriters, collections.Iterable)
         self.name = name
         self.path_fmt = path_fmt
         self.values = values
-        self.changes = changes
+        self.rewriters = rewriters
 
 class Runner:
     @classmethod
@@ -90,26 +90,24 @@ class Runner:
             raise Exception("shell %s failed" % cmd)
 
     @classmethod
-    def exec_single_job(cls, wdir_base, k, params, command, list_param_val):
-        assert len(list_param_val) == k
-        changes = [p.changes for p in params]
-        str_path = [(params[j].path_fmt % list_param_val[j]).replace(".", "_") for j in range(k)]
-        supp = "".join([f"/{str_path[j]}" for j in range(k)])
-        dname = f"{wdir_base}/wk_parallel{supp}"
-        cls.shell(f"mkdir -p {dname}")
-        os.chdir(dname)
+    def exec_single_job(cls, wdir_base, k_dim, params, command, list_param_val):
+        assert len(list_param_val) == k_dim
+        str_path_part = [(params[j].path_fmt % list_param_val[j]).replace(".", "_") for j in range(k_dim)]
+        suffix_path = "".join([f"/{str_path_part[j]}" for j in range(k_dim)])
+        single_dir_name = f"{wdir_base}/wk_parallel{suffix_path}"
+        cls.shell(f"mkdir -p {single_dir_name}")
+        os.chdir(single_dir_name)
         cls.shell(f"cp -rf {wdir_base}/template_parallel/* .")
-
-        for j in range(k):
-            for c in changes[j]:
-                c.rewrite_file_with_param(list_param_val[j])
+        for j in range(k_dim):
+            for r in params[j].rewriters:
+                r.rewrite_file_with_param(list_param_val[j])
         try:
             cls.shell(command, writeout=True)
             res = get_output_obj()
-            print(f"util_parallel: {supp} done")
+            print(f"util_parallel: {suffix_path} done")
         except:
             res = get_failed_obj()
-            print(f"util_parallel: {supp} failed")
+            print(f"util_parallel: {suffix_path} failed")
         return res
 
     @classmethod
