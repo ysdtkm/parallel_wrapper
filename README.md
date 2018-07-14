@@ -11,7 +11,7 @@
     * write the output to a file
 
 ## Requirements
-* Python > 3.5 (for subprocess.run)
+* Python > 3.6 (for subprocess.run and f-string)
 * numpy
 
 ## Usage
